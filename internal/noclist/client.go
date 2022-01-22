@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 )
 
@@ -15,9 +16,11 @@ const (
 )
 
 var (
-	ErrAuthentication = errors.New("client: authentication to server failed")
-	ErrTimeout        = errors.New("client: hit maximum retries")
-	ErrFailed         = errors.New("client: request failed")
+	ErrAuthentication  = errors.New("authentication to server failed")
+	ErrConfigServerURL = errors.New("config value 'ServerURL' was not a valid URL")
+	ErrFailed          = errors.New("request failed")
+	ErrInternal        = errors.New("an unexpected internal error occurred")
+	ErrTimeout         = errors.New("hit maximum retries")
 )
 
 // Client wraps calls to the BADSEC API.
@@ -29,8 +32,12 @@ type Client struct {
 }
 
 func (c *Client) authenticate() error {
-	resp, err := c.client.Head(c.baseURL + "/auth")
-	if err != nil || resp.StatusCode != 200 {
+	req, err := http.NewRequest("HEAD", c.baseURL+"/auth", nil)
+	if err != nil {
+		return ErrInternal
+	}
+	resp, err := c.doRetry(req)
+	if err != nil {
 		return ErrAuthentication
 	}
 	c.token = resp.Header.Get(headerBadsecAuthenticationToken)
@@ -65,7 +72,7 @@ func (c *Client) ListUsers() ([]string, error) {
 	path := "/users"
 	req, err := http.NewRequest("GET", c.baseURL+path, nil)
 	if err != nil {
-		return nil, ErrFailed // base URL was specified incorrectly
+		return nil, ErrInternal
 	}
 	resp, err := c.doRetry(req)
 	if err != nil || resp.StatusCode != 200 {
@@ -84,6 +91,9 @@ func (c *Client) ListUsers() ([]string, error) {
 //
 // New makes a network request to the server to authenticate.
 func New(cfg Config) (*Client, error) {
+	if _, err := url.ParseRequestURI(cfg.ServerURL); err != nil {
+		return nil, ErrConfigServerURL
+	}
 	c := Client{baseURL: cfg.ServerURL}
 	err := c.authenticate()
 	return &c, err

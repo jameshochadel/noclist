@@ -13,9 +13,17 @@ func main() {
 			ServerURL: "http://localhost:8888",
 		},
 	)
+	if err != nil {
+		exit1(err)
+	}
 	u, err := client.ListUsers()
 	if err != nil {
-		os.Exit(1)
+		exit1(err)
 	}
 	fmt.Printf("%v\n", u)
+}
+
+func exit1(err error) {
+	fmt.Fprintln(os.Stderr, "error:", err)
+	os.Exit(1)
 }
