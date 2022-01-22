@@ -16,3 +16,7 @@ go build .
 # Run the tests
 go test ./...
 ```
+
+## TODO
+
+* Create context.Context in main(), pass to client's ListUsers method, watch for OS cancellation signals in main

@@ -44,12 +44,30 @@ func (c *Client) checksum(path string) string {
 	return fmt.Sprintf("%x", s.Sum(nil))
 }
 
+// doRetry attempts to make a request up to three times. The request is
+// retried if it fails at the network level or if the response has any status
+// code besides 200. The x-request-checksum header is automatically added to
+// the request.
+func (c *Client) doRetry(req *http.Request) (*http.Response, error) {
+	req.Header.Set(headerRequestChecksum, c.checksum(req.URL.Path))
+
+	for i := 0; i < 3; i++ {
+		resp, err := c.client.Do(req)
+		if err == nil && resp.StatusCode == 200 {
+			return resp, nil
+		}
+	}
+
+	return nil, ErrTimeout
+}
+
 func (c *Client) ListUsers() ([]string, error) {
 	path := "/users"
 	req, err := http.NewRequest("GET", c.baseURL+path, nil)
-	req.Header.Set(headerRequestChecksum, c.checksum(path))
-
-	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, ErrFailed // base URL was specified incorrectly
+	}
+	resp, err := c.doRetry(req)
 	if err != nil || resp.StatusCode != 200 {
 		return nil, ErrFailed
 	}

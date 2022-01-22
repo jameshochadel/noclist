@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/jameshochadel/noclist/internal/noclist"
 )
@@ -13,7 +14,8 @@ func main() {
 		},
 	)
 	u, err := client.ListUsers()
-	fmt.Printf("err: %v\n", err)
-	fmt.Printf("client: %v\n", client)
-	fmt.Printf("u: %v\n", u)
+	if err != nil {
+		os.Exit(1)
+	}
+	fmt.Printf("%v\n", u)
 }
