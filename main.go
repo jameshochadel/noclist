@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -20,7 +21,11 @@ func main() {
 	if err != nil {
 		exit1(err)
 	}
-	fmt.Printf("%v\n", u)
+	j, err := json.Marshal(u)
+	if err != nil {
+		exit1(noclist.ErrFailed)
+	}
+	fmt.Printf("%s\n", j)
 }
 
 func exit1(err error) {
