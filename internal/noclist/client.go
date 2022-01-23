@@ -68,6 +68,10 @@ func (c *Client) doRetry(req *http.Request) (*http.Response, error) {
 	return nil, ErrTimeout
 }
 
+func (c *Client) Authenticated() bool {
+	return c.token != ""
+}
+
 func (c *Client) ListUsers() ([]string, error) {
 	path := "/users"
 	req, err := http.NewRequest("GET", c.baseURL+path, nil)
