@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 
 	"github.com/jameshochadel/noclist/internal/noclist"
@@ -16,8 +17,12 @@ var (
 		Headers:    http.Header{"badsec-authentication-token": []string{"something"}},
 	}
 	ResponseFailed = serverResponse{
-		// any code != http.StatusOKd
+		// any code != http.StatusOK is fine
 		StatusCode: http.StatusForbidden,
+	}
+	ResponseListUsersSucceeded = serverResponse{
+		StatusCode: http.StatusOK,
+		Body:       "foo\nbar",
 	}
 )
 
@@ -56,8 +61,11 @@ func NewServer(t *testing.T, responses []serverResponse) *testServer {
 		}
 
 		w.WriteHeader(response.StatusCode)
+		_, err := w.Write([]byte(response.Body))
+		if err != nil {
+			t.Fatalf("httptest.Server: unexpected error writing response body")
+		}
 		s.RequestCount++
-		// todo write body
 	}))
 	return &s
 }
@@ -120,8 +128,67 @@ func TestNew(t *testing.T) {
 	}
 }
 
-/*
-also to test:
+func TestListUsers(t *testing.T) {
+	cases := []struct {
+		Name      string
+		Responses []serverResponse
+		Users     []string
+		Error     error
+	}{
+		{
+			Name: "immediate success",
+			Responses: []serverResponse{
+				ResponseAuthSucceeded,
+				ResponseListUsersSucceeded,
+			},
+			Users: []string{"foo", "bar"},
+			Error: nil,
+		},
+		{
+			Name: "success after retries",
+			Responses: []serverResponse{
+				ResponseAuthSucceeded,
+				ResponseFailed,
+				ResponseFailed,
+				ResponseListUsersSucceeded,
+			},
+			Users: []string{"foo", "bar"},
+			Error: nil,
+		},
+		{
+			Name: "repeated failure",
+			Responses: []serverResponse{
+				ResponseAuthSucceeded,
+				ResponseFailed,
+				ResponseFailed,
+				ResponseFailed,
+			},
+			Users: nil,
+			Error: noclist.ErrFailed,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(fmt.Sprintf(tc.Name), func(t *testing.T) {
+			// arrange
+			s := NewServer(t, tc.Responses)
+			defer s.Server.Close()
+			client, err := noclist.New(noclist.Config{ServerURL: s.Server.URL})
+			if err != nil {
+				t.Fatal("unexpected failure authenticating")
+			}
 
-ListUsers
-*/
+			// act
+			users, err := client.ListUsers()
+
+			// assert
+			if !reflect.DeepEqual(users, tc.Users) {
+				t.Logf("expected users to be %v, got %v", tc.Users, users)
+				t.Fail()
+			}
+			if !errors.Is(err, tc.Error) {
+				t.Logf("expected error to be %v, got %v", tc.Error, err)
+				t.Fail()
+			}
+		})
+	}
+}

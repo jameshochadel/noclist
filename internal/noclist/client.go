@@ -72,6 +72,8 @@ func (c *Client) Authenticated() bool {
 	return c.token != ""
 }
 
+// ListUsers requests the list of users from the server and returns a slice of
+// user IDs if successful, or nil and an error if not.
 func (c *Client) ListUsers() ([]string, error) {
 	path := "/users"
 	req, err := http.NewRequest("GET", c.baseURL+path, nil)
@@ -87,7 +89,7 @@ func (c *Client) ListUsers() ([]string, error) {
 	if err != nil {
 		return nil, ErrFailed
 	}
-	return strings.Split(string(b), "\n"), nil
+	return strings.Split(strings.Trim(string(b), "\n"), "\n"), nil
 }
 
 // New returns a Client that is ready to make authenticated requests to the server,
